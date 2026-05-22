@@ -1,0 +1,2527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRE Deal Analyzer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #F5F5F5;
+      --surface-2: #FAFAFA;
+      --text: #1A1A2E;
+      --muted: #667085;
+      --border: #E5E7EB;
+      --accent: #0D9488;
+      --accent-dark: #0F766E;
+      --green: #16A34A;
+      --yellow: #CA8A04;
+      --red: #DC2626;
+      --blue: #2563EB;
+      --shadow: 0 12px 30px rgba(26, 26, 46, 0.08);
+      --shadow-soft: 0 4px 16px rgba(26, 26, 46, 0.06);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(13, 148, 136, 0.08), transparent 30%),
+        linear-gradient(180deg, #FFFFFF 0%, #F7F8FA 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .app-shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 22px 48px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      letter-spacing: -0.055em;
+      line-height: 1;
+    }
+
+    .subtitle {
+      max-width: 760px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 800;
+      padding: 10px 15px;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .btn:hover {
+      border-color: rgba(13, 148, 136, 0.45);
+      box-shadow: var(--shadow-soft);
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #FFFFFF;
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin: 24px 0;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(229, 231, 235, 0.85);
+      border-radius: 999px;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(16px);
+    }
+
+    .tab-btn {
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 850;
+      padding: 12px 14px;
+      transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #FFFFFF;
+      box-shadow: 0 10px 20px rgba(13, 148, 136, 0.22);
+    }
+
+    .tab-panel {
+      display: none;
+      animation: riseIn 220ms ease both;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .collapsible,
+    .card,
+    .table-wrap,
+    .chart-card,
+    .compare-panel {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .collapsible {
+      overflow: hidden;
+    }
+
+    .collapsible summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      cursor: pointer;
+      font-weight: 900;
+      list-style: none;
+    }
+
+    .collapsible summary::-webkit-details-marker { display: none; }
+
+    .arrow {
+      display: inline-grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--accent);
+      transition: transform 180ms ease;
+    }
+
+    details[open] .arrow { transform: rotate(180deg); }
+
+    .panel-body {
+      border-top: 1px solid var(--border);
+      padding: 18px 20px 20px;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      color: #344054;
+      font-size: 0.83rem;
+      font-weight: 850;
+    }
+
+    .helper {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid #D0D5DD;
+      border-radius: 12px;
+      background: #FFFFFF;
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+      transition: border 160ms ease, box-shadow 160ms ease;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.12);
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+      width: 100%;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .range-value {
+      min-width: 62px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--accent-dark);
+      font-size: 0.78rem;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .segmented {
+      display: inline-flex;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      width: fit-content;
+    }
+
+    .segmented button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 900;
+      padding: 8px 11px;
+    }
+
+    .segmented button.active {
+      background: var(--accent);
+      color: #FFFFFF;
+    }
+
+    .computed-box {
+      display: grid;
+      gap: 4px;
+      padding: 16px;
+      border: 1px solid rgba(13, 148, 136, 0.22);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(13, 148, 136, 0.11), rgba(13, 148, 136, 0.03));
+    }
+
+    .computed-box strong {
+      font-size: 1.55rem;
+      letter-spacing: -0.035em;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      background: rgba(13, 148, 136, 0.08);
+      color: #155E57;
+      padding: 12px 14px;
+      font-size: 0.9rem;
+    }
+
+    .hidden { display: none !important; }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 4px 0 14px;
+    }
+
+    .section-heading h2,
+    .section-heading h3 {
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+
+    .section-heading p {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+
+    .verdict-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 18px;
+      padding: 22px;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: #FFFFFF;
+      box-shadow: var(--shadow);
+    }
+
+    .verdict-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .verdict-value {
+      margin: 3px 0;
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 950;
+      letter-spacing: -0.06em;
+      line-height: 1;
+    }
+
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 104px;
+      border-radius: 999px;
+      color: #FFFFFF;
+      font-weight: 950;
+      padding: 12px 16px;
+    }
+
+    .metrics-row {
+      margin-top: 18px;
+    }
+
+    .metrics-row h3 {
+      margin: 0 0 12px;
+      font-size: 1.04rem;
+      letter-spacing: -0.02em;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric-card {
+      position: relative;
+      min-height: 148px;
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: #FFFFFF;
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 5px;
+      background: var(--muted);
+    }
+
+    .status-green::before { background: var(--green); }
+    .status-yellow::before { background: var(--yellow); }
+    .status-red::before { background: var(--red); }
+    .status-neutral::before { background: var(--accent); }
+
+    .metric-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .metric-name {
+      color: #344054;
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .metric-value {
+      margin-top: 10px;
+      font-size: 1.55rem;
+      font-weight: 950;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+    }
+
+    .metric-sub {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.81rem;
+    }
+
+    .tooltip {
+      position: relative;
+      flex: 0 0 auto;
+      display: inline-grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--accent-dark);
+      cursor: help;
+      font-size: 0.78rem;
+      font-weight: 950;
+    }
+
+    .tooltip span {
+      position: absolute;
+      top: 28px;
+      right: 0;
+      z-index: 10;
+      display: none;
+      width: min(280px, 72vw);
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #FFFFFF;
+      box-shadow: var(--shadow);
+      color: var(--text);
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .tooltip:hover span,
+    .tooltip:focus span {
+      display: block;
+    }
+
+    .stress-card {
+      margin: 18px 0 0;
+      padding: 16px;
+      border: 1px dashed rgba(202, 138, 4, 0.45);
+      border-radius: 18px;
+      background: rgba(202, 138, 4, 0.08);
+    }
+
+    .stress-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .mini-stat {
+      padding: 11px;
+      border-radius: 14px;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+    }
+
+    .mini-stat small {
+      display: block;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .mini-stat strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 1.05rem;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      margin-bottom: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+      background: #FFFFFF;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 14px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+      font-weight: 850;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--surface);
+      color: #344054;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.055em;
+    }
+
+    .cell-green { color: var(--green); font-weight: 900; }
+    .cell-yellow { color: var(--yellow); font-weight: 900; }
+    .cell-red { color: var(--red); font-weight: 900; }
+    .cell-neutral { color: var(--text); font-weight: 850; }
+
+    .scenario-layout {
+      display: grid;
+      gap: 18px;
+    }
+
+    .chart-card,
+    .compare-panel {
+      padding: 18px;
+    }
+
+    .exit-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .exit-inputs {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #FFFFFF;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: #FFFFFF;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .summary-card small {
+      display: block;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .summary-card strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.38rem;
+      letter-spacing: -0.035em;
+    }
+
+    .compare-panel {
+      margin-top: 18px;
+    }
+
+    .memo-sheet {
+      display: grid;
+      gap: 16px;
+    }
+
+    .memo-page {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: clamp(18px, 3vw, 34px);
+    }
+
+    .memo-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+    }
+
+    .memo-title {
+      margin: 0;
+      font-size: clamp(1.7rem, 4vw, 3rem);
+      letter-spacing: -0.055em;
+      line-height: 1;
+    }
+
+    .memo-badge {
+      border-radius: 999px;
+      color: #FFFFFF;
+      font-weight: 950;
+      padding: 10px 14px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .memo-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .memo-kpi {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface-2);
+      padding: 12px;
+    }
+
+    .memo-kpi small {
+      display: block;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .memo-kpi strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 1.22rem;
+      letter-spacing: -0.035em;
+    }
+
+    .memo-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .memo-block {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: #FFFFFF;
+      padding: 16px;
+    }
+
+    .memo-block h3 {
+      margin: 0 0 10px;
+      letter-spacing: -0.025em;
+    }
+
+    .memo-block ul {
+      margin: 0;
+      padding-left: 19px;
+    }
+
+    .memo-block li {
+      margin: 8px 0;
+      color: #344054;
+    }
+
+    .memo-narrative {
+      color: #344054;
+      font-size: 1.02rem;
+      margin: 0;
+    }
+
+    .negotiation-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .negotiation-inputs,
+    .negotiation-output {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-soft);
+      padding: 18px;
+    }
+
+    .negotiation-inputs {
+      display: grid;
+      gap: 14px;
+    }
+
+    .offer-band {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .offer-card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--surface-2);
+      padding: 16px;
+    }
+
+    .offer-card.featured {
+      border-color: rgba(13, 148, 136, 0.35);
+      background: linear-gradient(135deg, rgba(13, 148, 136, 0.12), #FFFFFF);
+    }
+
+    .offer-card small {
+      display: block;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .offer-card strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.6rem;
+      letter-spacing: -0.045em;
+    }
+
+    .script-box {
+      border: 1px solid rgba(13, 148, 136, 0.25);
+      border-radius: 18px;
+      background: rgba(13, 148, 136, 0.07);
+      color: #155E57;
+      padding: 16px;
+      font-size: 0.98rem;
+    }
+
+    .compare-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .print-sheet {
+      display: none;
+    }
+
+    @media (max-width: 1100px) {
+      .panel-grid,
+      .exit-layout,
+      .negotiation-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stress-grid,
+      .summary-strip,
+      .offer-band {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell {
+        padding: 18px 12px 36px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-actions {
+        justify-content: flex-start;
+      }
+
+      .top-nav {
+        position: static;
+        grid-template-columns: 1fr;
+        border-radius: 22px;
+      }
+
+      .input-grid,
+      .metric-grid,
+      .summary-strip,
+      .stress-grid,
+      .offer-band {
+        grid-template-columns: 1fr;
+      }
+
+      .verdict-card {
+        grid-template-columns: 1fr;
+      }
+
+      .memo-header,
+      .memo-columns,
+      .memo-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #FFFFFF;
+      }
+
+      .top-nav,
+      .hero-actions,
+      .tab-panel,
+      .compare-panel {
+        display: none !important;
+      }
+
+      .app-shell {
+        max-width: none;
+        padding: 0;
+      }
+
+      .hero {
+        margin-bottom: 12px;
+      }
+
+      .print-sheet {
+        display: block;
+      }
+
+      body.memo-print .print-sheet {
+        display: none;
+      }
+
+      body.memo-print #tab-memo.active {
+        display: block !important;
+      }
+
+      .print-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .print-item {
+        border: 1px solid #D0D5DD;
+        border-radius: 10px;
+        padding: 8px;
+      }
+
+      .print-item small {
+        display: block;
+        color: #667085;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Commercial Real Estate Underwriting</p>
+        <h1>CRE Deal Analyzer</h1>
+        <p class="subtitle">A free, single-file analyzer for acquisition underwriting, debt sizing, scenarios, exit projections, and quick deal comparisons.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn" id="saveDealBtn" type="button">Save Deal</button>
+        <button class="btn" id="printBtn" type="button">Print Summary</button>
+        <button class="btn ghost" id="resetBtn" type="button">Reset</button>
+      </div>
+    </header>
+
+    <nav class="top-nav" aria-label="Main sections">
+      <button class="tab-btn active" data-tab="inputs" type="button">Deal Inputs</button>
+      <button class="tab-btn" data-tab="dashboard" type="button">Analysis Dashboard</button>
+      <button class="tab-btn" data-tab="scenarios" type="button">Scenario Analysis</button>
+      <button class="tab-btn" data-tab="exit" type="button">Exit &amp; Hold Period</button>
+      <button class="tab-btn" data-tab="memo" type="button">Investment Memo</button>
+      <button class="tab-btn" data-tab="negotiation" type="button">Negotiation Strategy</button>
+    </nav>
+
+    <main>
+      <section class="tab-panel active" id="tab-inputs">
+        <div class="panel-grid">
+          <details class="collapsible" open>
+            <summary>Property Info <span class="arrow">⌄</span></summary>
+            <div class="panel-body input-grid">
+              <div class="field">
+                <label for="propertyName">Property name</label>
+                <input id="propertyName" data-key="propertyName" type="text" value="Sample CRE Deal">
+              </div>
+              <div class="field">
+                <label for="propertyType">Property type</label>
+                <select id="propertyType" data-key="propertyType">
+                  <option>Office</option>
+                  <option>Retail</option>
+                  <option>Industrial</option>
+                  <option>Flex</option>
+                  <option>Mixed-Use</option>
+                  <option>Multifamily (5+ units)</option>
+                  <option>Land</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="yearBuilt">Year built</label>
+                <input id="yearBuilt" class="fmt" data-key="yearBuilt" data-format="number" type="text">
+              </div>
+              <div class="field">
+                <label for="rentableSF">Rentable square footage</label>
+                <input id="rentableSF" class="fmt" data-key="rentableSF" data-format="number" type="text">
+              </div>
+              <div class="field">
+                <label for="tenantCount">Number of tenants</label>
+                <input id="tenantCount" class="fmt" data-key="tenantCount" data-format="number" type="text">
+              </div>
+              <div class="field multifamily-only hidden">
+                <label for="unitCount">Number of units</label>
+                <input id="unitCount" class="fmt" data-key="unitCount" data-format="number" type="text">
+              </div>
+              <div class="field full">
+                <label for="occupancy">Current occupancy at purchase</label>
+                <div class="range-row">
+                  <input id="occupancy" data-key="occupancy" type="range" min="0" max="100" step="1">
+                  <span class="range-value" data-range-label="occupancy"></span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="collapsible" open>
+            <summary>Purchase &amp; Financing <span class="arrow">⌄</span></summary>
+            <div class="panel-body input-grid">
+              <div class="field">
+                <label for="purchasePrice">Purchase price</label>
+                <input id="purchasePrice" class="fmt" data-key="purchasePrice" data-format="currency" type="text">
+              </div>
+              <div class="field">
+                <label for="closingCosts">Closing costs</label>
+                <div class="segmented" data-toggle="closingCostMode">
+                  <button data-value="percent" type="button">%</button>
+                  <button data-value="amount" type="button">$</button>
+                </div>
+                <input id="closingCosts" class="fmt" data-key="closingCosts" data-format="percent" type="text">
+              </div>
+              <div class="field">
+                <label for="downPaymentPct">Down payment</label>
+                <div class="range-row">
+                  <input id="downPaymentPct" data-key="downPaymentPct" type="range" min="0" max="50" step="1">
+                  <span class="range-value" data-range-label="downPaymentPct"></span>
+                </div>
+              </div>
+              <div class="field">
+                <label>Loan amount</label>
+                <div class="computed-box">
+                  <strong id="loanAmountInput">$0</strong>
+                  <span class="helper">Purchase Price × (1 − Down Payment %)</span>
+                </div>
+              </div>
+              <div class="field">
+                <label for="interestRate">Loan interest rate</label>
+                <div class="range-row">
+                  <input id="interestRate" data-key="interestRate" type="range" min="0" max="15" step="0.125">
+                  <span class="range-value" data-range-label="interestRate"></span>
+                </div>
+              </div>
+              <div class="field">
+                <label for="loanTerm">Loan term</label>
+                <select id="loanTerm" data-key="loanTerm">
+                  <option value="5">5 years</option>
+                  <option value="7">7 years</option>
+                  <option value="10">10 years</option>
+                  <option value="15">15 years</option>
+                  <option value="20">20 years</option>
+                  <option value="25">25 years</option>
+                  <option value="30">30 years</option>
+                </select>
+              </div>
+              <div class="field full">
+                <label>Amortization type</label>
+                <div class="segmented" data-toggle="amortizationType">
+                  <button data-value="amortizing" type="button">Fully Amortizing</button>
+                  <button data-value="io" type="button">Interest-Only</button>
+                  <button data-value="partial-io" type="button">Partial IO</button>
+                </div>
+              </div>
+              <div class="field partial-io-only hidden">
+                <label for="ioYears">IO period length</label>
+                <input id="ioYears" class="fmt" data-key="ioYears" data-format="number" type="text">
+                <span class="helper">Years of interest-only payments before recast.</span>
+              </div>
+              <div class="field">
+                <label for="pointsPct">Points paid at closing</label>
+                <input id="pointsPct" class="fmt" data-key="pointsPct" data-format="percent" type="text">
+              </div>
+              <div class="field">
+                <label for="originationFeePct">Loan origination fee</label>
+                <input id="originationFeePct" class="fmt" data-key="originationFeePct" data-format="percent" type="text">
+              </div>
+              <div class="field full">
+                <label>Total Cash Invested</label>
+                <div class="computed-box">
+                  <strong id="cashInvestedInput">$0</strong>
+                  <span class="helper">Down Payment + Closing Costs + Points + Origination Fee</span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="collapsible" open>
+            <summary>Income <span class="arrow">⌄</span></summary>
+            <div class="panel-body input-grid">
+              <div class="field">
+                <label for="baseRent">Annual base rent / GPR</label>
+                <input id="baseRent" class="fmt" data-key="baseRent" data-format="currency" type="text">
+              </div>
+              <div class="field">
+                <label for="additionalIncome">Additional annual income</label>
+                <input id="additionalIncome" class="fmt" data-key="additionalIncome" data-format="currency" type="text">
+              </div>
+              <div class="field">
+                <label for="vacancyRate">Vacancy rate</label>
+                <div class="range-row">
+                  <input id="vacancyRate" data-key="vacancyRate" type="range" min="0" max="40" step="1">
+                  <span class="range-value" data-range-label="vacancyRate"></span>
+                </div>
+              </div>
+              <div class="field">
+                <label for="creditLossRate">Credit loss / bad debt</label>
+                <div class="range-row">
+                  <input id="creditLossRate" data-key="creditLossRate" type="range" min="0" max="5" step="0.25">
+                  <span class="range-value" data-range-label="creditLossRate"></span>
+                </div>
+              </div>
+              <div class="field">
+                <label for="leaseType">Lease type</label>
+                <select id="leaseType" data-key="leaseType">
+                  <option>Gross</option>
+                  <option>Modified Gross</option>
+                  <option>NNN</option>
+                  <option>NN</option>
+                  <option>Absolute NNN</option>
+                </select>
+              </div>
+              <div class="field full hidden" id="nnnNote">
+                <div class="note">For NNN leases, enter only landlord-responsible expenses below. Do not double-count reimbursable items in both income and expenses.</div>
+              </div>
+            </div>
+          </details>
+
+          <details class="collapsible" open>
+            <summary>Operating Expenses <span class="arrow">⌄</span></summary>
+            <div class="panel-body input-grid" id="expenseInputs"></div>
+          </details>
+
+          <details class="collapsible" open>
+            <summary>User-Defined Thresholds <span class="arrow">⌄</span></summary>
+            <div class="panel-body input-grid">
+              <div class="field">
+                <label for="minCapRate">Minimum cap rate</label>
+                <input id="minCapRate" class="fmt" data-key="minCapRate" data-format="percent" type="text">
+              </div>
+              <div class="field">
+                <label for="minCoc">Minimum cash-on-cash return</label>
+                <input id="minCoc" class="fmt" data-key="minCoc" data-format="percent" type="text">
+              </div>
+              <div class="field">
+                <label for="minDscr">Minimum DSCR</label>
+                <input id="minDscr" class="fmt" data-key="minDscr" data-format="decimal" type="text">
+              </div>
+              <div class="field">
+                <label for="maxBer">Maximum break-even ratio</label>
+                <input id="maxBer" class="fmt" data-key="maxBer" data-format="percent" type="text">
+              </div>
+              <div class="field">
+                <label for="targetEquityMultiple">Target equity multiple</label>
+                <input id="targetEquityMultiple" class="fmt" data-key="targetEquityMultiple" data-format="multiple" type="text">
+              </div>
+              <div class="field">
+                <label for="minDebtYield">Minimum debt yield</label>
+                <input id="minDebtYield" class="fmt" data-key="minDebtYield" data-format="percent" type="text">
+              </div>
+              <div class="field full">
+                <label for="strategy">Investment strategy</label>
+                <select id="strategy" data-key="strategy">
+                  <option>Cash Flow Focus</option>
+                  <option>Appreciation Focus</option>
+                  <option>Balanced</option>
+                  <option>Value-Add</option>
+                </select>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-dashboard">
+        <div id="verdictMount"></div>
+        <div id="stressMount"></div>
+        <div class="section-heading">
+          <div>
+            <h2>Analysis Dashboard</h2>
+            <p>Live status cards use your thresholds and standard CRE underwriting conventions.</p>
+          </div>
+          <div class="segmented" data-toggle="perSfMode">
+            <button data-value="off" type="button">Total</button>
+            <button data-value="on" type="button">Per SF</button>
+          </div>
+        </div>
+        <div id="dashboardMount"></div>
+      </section>
+
+      <section class="tab-panel" id="tab-scenarios">
+        <div class="scenario-layout">
+          <div class="section-heading">
+            <div>
+              <h2>Scenario Analysis</h2>
+              <p>Bear, base, and bull cases update from the same live underwriting model.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="scenarioTable"></table>
+          </div>
+          <div class="section-heading">
+            <div>
+              <h3>Cap Rate Sensitivity</h3>
+              <p>NOI and price stress grid versus your minimum cap rate threshold.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="sensitivityTable"></table>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-exit">
+        <div class="exit-layout">
+          <aside class="exit-inputs">
+            <h2>Exit Inputs</h2>
+            <div class="field">
+              <label for="holdYears">Projected hold period</label>
+              <div class="range-row">
+                <input id="holdYears" data-key="holdYears" type="range" min="1" max="30" step="1">
+                <span class="range-value" data-range-label="holdYears"></span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="rentGrowth">Annual rent growth rate</label>
+              <input id="rentGrowth" class="fmt" data-key="rentGrowth" data-format="percent" type="text">
+            </div>
+            <div class="field">
+              <label for="expenseGrowth">Annual expense growth rate</label>
+              <input id="expenseGrowth" class="fmt" data-key="expenseGrowth" data-format="percent" type="text">
+            </div>
+            <div class="field">
+              <label>Exit method</label>
+              <div class="segmented" data-toggle="exitMethod">
+                <button data-value="cap" type="button">Cap Rate Exit</button>
+                <button data-value="appreciation" type="button">Appreciation Exit</button>
+              </div>
+            </div>
+            <div class="field exit-cap-only">
+              <label for="exitCapRate">Exit cap rate</label>
+              <input id="exitCapRate" class="fmt" data-key="exitCapRate" data-format="percent" type="text">
+            </div>
+            <div class="field exit-appreciation-only hidden">
+              <label for="appreciationRate">Annual appreciation rate</label>
+              <input id="appreciationRate" class="fmt" data-key="appreciationRate" data-format="percent" type="text">
+            </div>
+            <div class="field">
+              <label for="sellingCostPct">Cost of sale / selling costs</label>
+              <input id="sellingCostPct" class="fmt" data-key="sellingCostPct" data-format="percent" type="text">
+            </div>
+          </aside>
+          <div>
+            <div class="summary-strip" id="exitSummary"></div>
+            <div class="chart-card">
+              <canvas id="exitChart" height="120"></canvas>
+            </div>
+            <div class="table-wrap" style="margin-top:18px;">
+              <table id="exitTable"></table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-memo">
+        <div class="section-heading">
+          <div>
+            <h2>Investment Memo</h2>
+            <p>A one-page partner-style readout that translates the model into judgment, risks, and next diligence steps.</p>
+          </div>
+          <button class="btn primary" id="printMemoBtn" type="button">Print Memo</button>
+        </div>
+        <div class="memo-sheet" id="memoMount"></div>
+      </section>
+
+      <section class="tab-panel" id="tab-negotiation">
+        <div class="section-heading">
+          <div>
+            <h2>Negotiation Strategy</h2>
+            <p>Translate underwriting constraints into an initial offer, target strike price, walk-away point, and counteroffer guidance.</p>
+          </div>
+        </div>
+        <div class="negotiation-layout">
+          <aside class="negotiation-inputs">
+            <h2>Deal Process Inputs</h2>
+            <div class="field">
+              <label for="askingPrice">Asking price</label>
+              <input id="askingPrice" class="fmt" data-key="askingPrice" data-format="currency" type="text">
+            </div>
+            <div class="field">
+              <label for="sellerGuidance">Seller guidance / whisper price</label>
+              <input id="sellerGuidance" class="fmt" data-key="sellerGuidance" data-format="currency" type="text">
+            </div>
+            <div class="field">
+              <label for="daysOnMarket">Days on market</label>
+              <input id="daysOnMarket" class="fmt" data-key="daysOnMarket" data-format="number" type="text">
+            </div>
+            <div class="field">
+              <label for="knownOffers">Known competing offers</label>
+              <input id="knownOffers" class="fmt" data-key="knownOffers" data-format="number" type="text">
+            </div>
+            <div class="field">
+              <label for="buyerInterest">Buyer interest</label>
+              <select id="buyerInterest" data-key="buyerInterest">
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="sellerMotivation">Seller motivation</label>
+              <select id="sellerMotivation" data-key="sellerMotivation">
+                <option>Unknown</option>
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="propertyCondition">Property condition</label>
+              <select id="propertyCondition" data-key="propertyCondition">
+                <option>Stabilized</option>
+                <option>Light Value-Add</option>
+                <option>Heavy Value-Add</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="deferredCapex">Known capex / deferred maintenance</label>
+              <input id="deferredCapex" class="fmt" data-key="deferredCapex" data-format="currency" type="text">
+            </div>
+            <div class="field">
+              <label for="marketTemperature">Market temperature</label>
+              <select id="marketTemperature" data-key="marketTemperature">
+                <option>Buyer Market</option>
+                <option>Balanced</option>
+                <option>Seller Market</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="desiredDiscountPct">Desired discount to asking</label>
+              <input id="desiredDiscountPct" class="fmt" data-key="desiredDiscountPct" data-format="percent" type="text">
+            </div>
+            <div class="field">
+              <label for="sellerCounterPrice">Seller counter price</label>
+              <input id="sellerCounterPrice" class="fmt" data-key="sellerCounterPrice" data-format="currency" type="text">
+            </div>
+          </aside>
+          <div class="negotiation-output" id="negotiationMount"></div>
+        </div>
+      </section>
+    </main>
+
+    <section class="compare-panel">
+      <div class="compare-actions">
+        <div>
+          <h2 style="margin:0;">Save &amp; Compare</h2>
+          <p class="helper" style="margin:4px 0 0;">Save up to 5 in-memory deals for a side-by-side metric comparison.</p>
+        </div>
+        <button class="btn" id="clearDealsBtn" type="button">Clear Saved Deals</button>
+      </div>
+      <div class="table-wrap" style="margin-bottom:0;">
+        <table id="compareTable"></table>
+      </div>
+    </section>
+
+    <section class="print-sheet" id="printSheet"></section>
+  </div>
+
+  <script>
+    const EXPENSES = [
+      ["propertyTaxes", "Property taxes", "currency"],
+      ["insurance", "Insurance", "currency"],
+      ["managementFee", "Property management fee", "percent"],
+      ["repairs", "Repairs & maintenance", "currency"],
+      ["capexReserve", "Capital expenditure reserve", "currency"],
+      ["utilities", "Utilities", "currency"],
+      ["landscaping", "Landscaping / janitorial", "currency"],
+      ["cam", "Common area maintenance / CAM", "currency"],
+      ["leasingCommissions", "Leasing commissions reserve", "currency"],
+      ["tenantImprovements", "Tenant improvement reserve", "currency"],
+      ["accountingLegal", "Accounting / legal", "currency"],
+      ["otherExpenses", "Other expenses", "currency"]
+    ];
+
+    const DEFAULTS = {
+      propertyName: "Sample CRE Deal",
+      propertyType: "Office",
+      yearBuilt: 2005,
+      rentableSF: 50000,
+      tenantCount: 8,
+      unitCount: 40,
+      occupancy: 95,
+      purchasePrice: 7500000,
+      closingCostMode: "percent",
+      closingCosts: 2,
+      downPaymentPct: 25,
+      interestRate: 6.5,
+      loanTerm: 25,
+      amortizationType: "amortizing",
+      ioYears: 3,
+      pointsPct: 0,
+      originationFeePct: 1,
+      baseRent: 900000,
+      additionalIncome: 75000,
+      vacancyRate: 5,
+      creditLossRate: 1,
+      leaseType: "Modified Gross",
+      propertyTaxes: 115000,
+      propertyTaxesMode: "amount",
+      insurance: 42000,
+      insuranceMode: "amount",
+      managementFee: 3,
+      managementFeeMode: "percent",
+      repairs: 55000,
+      repairsMode: "amount",
+      capexReserve: 30000,
+      capexReserveMode: "amount",
+      utilities: 48000,
+      utilitiesMode: "amount",
+      landscaping: 18000,
+      landscapingMode: "amount",
+      cam: 52000,
+      camMode: "amount",
+      leasingCommissions: 22000,
+      leasingCommissionsMode: "amount",
+      tenantImprovements: 28000,
+      tenantImprovementsMode: "amount",
+      accountingLegal: 10000,
+      accountingLegalMode: "amount",
+      otherExpenses: 12000,
+      otherExpensesMode: "amount",
+      minCapRate: 6,
+      minCoc: 8,
+      minDscr: 1.25,
+      maxBer: 80,
+      targetEquityMultiple: 1.8,
+      minDebtYield: 8,
+      strategy: "Balanced",
+      perSfMode: "off",
+      holdYears: 10,
+      rentGrowth: 2,
+      expenseGrowth: 2,
+      exitMethod: "cap",
+      exitCapRate: 0,
+      appreciationRate: 3,
+      sellingCostPct: 5,
+      askingPrice: 7800000,
+      sellerGuidance: 0,
+      daysOnMarket: 45,
+      knownOffers: 0,
+      buyerInterest: "Medium",
+      sellerMotivation: "Unknown",
+      propertyCondition: "Stabilized",
+      deferredCapex: 0,
+      marketTemperature: "Balanced",
+      desiredDiscountPct: 5,
+      sellerCounterPrice: 0
+    };
+
+    let dealState = { ...DEFAULTS };
+    let savedDeals = [];
+    let exitChart = null;
+    let exitCapAuto = true;
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+    function safeNum(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function parseFormatted(value) {
+      if (typeof value !== "string") return safeNum(value);
+      const cleaned = value.replace(/[$,%x,\s]/g, "");
+      const parsed = Number(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatNumber(value, decimals = 0) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "N/A";
+      return numeric.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+
+    function formatCurrency(value, decimals = 0) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "N/A";
+      return numeric.toLocaleString(undefined, { style: "currency", currency: "USD", minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+
+    function formatPercent(value, decimals = 1) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "N/A";
+      return `${(numeric * 100).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}%`;
+    }
+
+    function formatMultiple(value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "N/A";
+      return `${numeric.toFixed(2)}x`;
+    }
+
+    function ratio(numerator, denominator) {
+      return denominator ? numerator / denominator : NaN;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function payment(principal, annualRatePct, years) {
+      const months = Math.max(0, Math.round(years * 12));
+      const monthlyRate = annualRatePct / 100 / 12;
+      if (principal <= 0 || months <= 0) return 0;
+      if (monthlyRate === 0) return principal / months;
+      const factor = Math.pow(1 + monthlyRate, months);
+      return principal * (monthlyRate * factor) / (factor - 1);
+    }
+
+    function balanceAfterPayments(principal, annualRatePct, monthlyPayment, months) {
+      const monthlyRate = annualRatePct / 100 / 12;
+      if (principal <= 0) return 0;
+      if (months <= 0) return principal;
+      if (monthlyRate === 0) return Math.max(0, principal - monthlyPayment * months);
+      const factor = Math.pow(1 + monthlyRate, months);
+      return Math.max(0, principal * factor - monthlyPayment * ((factor - 1) / monthlyRate));
+    }
+
+    // Builds the annual debt schedule used by dashboard, exit analysis, and principal paydown.
+    function buildDebtSchedule(input) {
+      const loanAmount = input.purchasePrice * (1 - input.downPaymentPct / 100);
+      const termYears = safeNum(input.loanTerm);
+      const months = Math.max(1, termYears * 12);
+      const rate = input.interestRate;
+      const monthlyRate = rate / 100 / 12;
+      const rows = [];
+      let balance = loanAmount;
+      let recastPayment = 0;
+
+      if (input.amortizationType === "amortizing") {
+        recastPayment = payment(loanAmount, rate, termYears);
+      } else if (input.amortizationType === "io") {
+        recastPayment = loanAmount * monthlyRate;
+      } else {
+        const ioMonths = clamp(Math.round(input.ioYears * 12), 0, months - 1);
+        const remainingYears = Math.max((months - ioMonths) / 12, 1 / 12);
+        recastPayment = payment(loanAmount, rate, remainingYears);
+      }
+
+      for (let month = 1; month <= months; month++) {
+        let monthlyPayment;
+        const ioMonths = input.amortizationType === "partial-io" ? clamp(Math.round(input.ioYears * 12), 0, months - 1) : 0;
+        const isIO = input.amortizationType === "io" || (input.amortizationType === "partial-io" && month <= ioMonths);
+        if (isIO) {
+          monthlyPayment = loanAmount * monthlyRate;
+        } else if (input.amortizationType === "partial-io") {
+          monthlyPayment = recastPayment;
+        } else {
+          monthlyPayment = recastPayment;
+        }
+
+        const interest = balance * monthlyRate;
+        const principal = isIO ? 0 : Math.min(balance, Math.max(0, monthlyPayment - interest));
+        balance = Math.max(0, balance - principal);
+        const yearIndex = Math.ceil(month / 12) - 1;
+        if (!rows[yearIndex]) {
+          rows[yearIndex] = { year: yearIndex + 1, debtService: 0, principal: 0, interest: 0, endingBalance: balance, monthlyPayment };
+        }
+        rows[yearIndex].debtService += monthlyPayment;
+        rows[yearIndex].principal += principal;
+        rows[yearIndex].interest += interest;
+        rows[yearIndex].endingBalance = balance;
+        rows[yearIndex].monthlyPayment = monthlyPayment;
+      }
+
+      const postIoYear = input.amortizationType === "partial-io" ? Math.min(Math.floor(input.ioYears) + 1, rows.length) : 1;
+      return {
+        loanAmount,
+        rows,
+        yearOne: rows[0] || { debtService: 0, principal: 0, endingBalance: loanAmount, monthlyPayment: 0 },
+        postIo: rows[Math.max(0, postIoYear - 1)] || rows[0] || { debtService: 0, principal: 0, endingBalance: loanAmount, monthlyPayment: 0 }
+      };
+    }
+
+    function getInputSnapshot() {
+      return { ...dealState };
+    }
+
+    function closingCostsAmount(input) {
+      return input.closingCostMode === "percent" ? input.purchasePrice * input.closingCosts / 100 : input.closingCosts;
+    }
+
+    function expenseAmount(input, key, egi) {
+      const mode = input[`${key}Mode`] || "amount";
+      return mode === "percent" ? egi * safeNum(input[key]) / 100 : safeNum(input[key]);
+    }
+
+    // Calculates core income, expense, financing, return, and pass/fail metrics for one underwriting case.
+    function calculateCore(input, options = {}) {
+      const baseRent = Math.max(0, input.baseRent * (options.rentMultiplier ?? 1));
+      const additionalIncome = Math.max(0, input.additionalIncome * (options.rentMultiplier ?? 1));
+      const vacancyRate = clamp((input.vacancyRate + (options.vacancyDelta ?? 0)) / 100, 0, 1);
+      const creditLossRate = clamp(input.creditLossRate / 100, 0, 1);
+      const gpi = baseRent + additionalIncome;
+      const vacancyLoss = gpi * vacancyRate;
+      const creditLoss = gpi * creditLossRate;
+      const egi = gpi - vacancyLoss - creditLoss;
+      const expenseMultiplier = options.expenseMultiplier ?? 1;
+      const expenses = {};
+      let opex = 0;
+      EXPENSES.forEach(([key]) => {
+        expenses[key] = expenseAmount(input, key, egi) * expenseMultiplier;
+        opex += expenses[key];
+      });
+      const noi = egi - opex;
+      const debt = buildDebtSchedule(input);
+      const ads = options.adsOverride ?? debt.yearOne.debtService;
+      const monthlyPayment = ads / 12;
+      const downPayment = input.purchasePrice * input.downPaymentPct / 100;
+      const loanAmount = debt.loanAmount;
+      const points = loanAmount * input.pointsPct / 100;
+      const origination = loanAmount * input.originationFeePct / 100;
+      const totalCashInvested = downPayment + closingCostsAmount(input) + points + origination;
+      const annualCashFlow = noi - ads;
+      const capRate = ratio(noi, input.purchasePrice);
+      const coc = ratio(annualCashFlow, totalCashInvested);
+      const dscr = ratio(noi, ads);
+      const ltv = ratio(loanAmount, input.purchasePrice);
+      const debtYield = ratio(noi, loanAmount);
+      const loanConstant = ratio(ads, loanAmount);
+      const oer = ratio(opex, egi);
+      const grm = ratio(input.purchasePrice, gpi);
+      const priceSf = ratio(input.purchasePrice, input.rentableSF);
+      const priceUnit = ratio(input.purchasePrice, input.unitCount);
+      const rentSf = ratio(baseRent, input.rentableSF);
+      const ber = ratio(opex + ads, egi);
+      const berGpi = ratio(opex + ads, gpi);
+      const principalPaydownYear1 = debt.yearOne.principal;
+      const leveredReturnApprox = ratio(annualCashFlow + principalPaydownYear1, totalCashInvested);
+      return {
+        input, baseRent, additionalIncome, gpi, vacancyLoss, creditLoss, egi, expenses, opex, noi, debt,
+        ads, monthlyPayment, loanAmount, downPayment, points, origination, totalCashInvested,
+        annualCashFlow, monthlyCashFlow: annualCashFlow / 12, capRate, coc, dscr, ltv, debtYield,
+        loanConstant, oer, grm, priceSf, priceUnit, rentSf, ber, berGpi, principalPaydownYear1, leveredReturnApprox
+      };
+    }
+
+    function coreAtPurchasePrice(price) {
+      return calculateCore({ ...dealState, purchasePrice: Math.max(0, price) });
+    }
+
+    function irrAtPurchasePrice(price) {
+      const input = { ...dealState, purchasePrice: Math.max(0, price) };
+      const core = calculateCore(input);
+      const years = Math.max(1, Math.round(input.holdYears));
+      const baseGpi = core.gpi;
+      const baseOpex = core.opex;
+      let cumulativeCashFlow = 0;
+      const annualCashFlows = [];
+      let exitNoi = core.noi;
+      let exitBalance = core.loanAmount;
+
+      for (let year = 1; year <= years; year++) {
+        const grossIncome = baseGpi * Math.pow(1 + input.rentGrowth / 100, year - 1);
+        const operatingExpenses = baseOpex * Math.pow(1 + input.expenseGrowth / 100, year - 1);
+        const noi = grossIncome - operatingExpenses;
+        const debtRow = core.debt.rows[Math.min(year - 1, core.debt.rows.length - 1)] || { debtService: 0, endingBalance: 0 };
+        const cashFlow = noi - debtRow.debtService;
+        annualCashFlows.push(cashFlow);
+        cumulativeCashFlow += cashFlow;
+        exitNoi = noi;
+        exitBalance = debtRow.endingBalance;
+      }
+
+      const salePrice = input.exitMethod === "cap"
+        ? (input.exitCapRate > 0 ? exitNoi / (input.exitCapRate / 100) : 0)
+        : input.purchasePrice * Math.pow(1 + input.appreciationRate / 100, years);
+      const netSaleProceeds = salePrice - exitBalance - (salePrice * input.sellingCostPct / 100);
+      const irrFlows = [-core.totalCashInvested, ...annualCashFlows.slice(0, -1), annualCashFlows[annualCashFlows.length - 1] + netSaleProceeds];
+      const irr = clamp(solveIrr(irrFlows), -1, 2);
+      const equityMultiple = ratio(netSaleProceeds + cumulativeCashFlow, core.totalCashInvested);
+      return { irr, equityMultiple };
+    }
+
+    function findMaxPriceByPredicate(low, high, predicate) {
+      if (high <= 0) return 0;
+      if (!predicate(low)) return 0;
+      if (predicate(high)) return high;
+      let left = low;
+      let right = high;
+      for (let i = 0; i < 70; i++) {
+        const mid = (left + right) / 2;
+        if (predicate(mid)) left = mid;
+        else right = mid;
+      }
+      return left;
+    }
+
+    function negotiationPressureAdjustment() {
+      let adjustment = 0;
+      if (dealState.marketTemperature === "Buyer Market") adjustment -= 0.025;
+      if (dealState.marketTemperature === "Seller Market") adjustment += 0.025;
+      if (dealState.buyerInterest === "Low") adjustment -= 0.015;
+      if (dealState.buyerInterest === "High") adjustment += 0.025;
+      if (dealState.sellerMotivation === "High") adjustment -= 0.025;
+      if (dealState.sellerMotivation === "Low") adjustment += 0.015;
+      if (dealState.daysOnMarket >= 120) adjustment -= 0.025;
+      else if (dealState.daysOnMarket >= 60) adjustment -= 0.0125;
+      else if (dealState.daysOnMarket <= 14) adjustment += 0.0125;
+      if (dealState.knownOffers >= 3) adjustment += 0.025;
+      else if (dealState.knownOffers >= 1) adjustment += 0.0125;
+      if (dealState.propertyCondition === "Heavy Value-Add") adjustment -= 0.02;
+      if (dealState.propertyCondition === "Light Value-Add") adjustment -= 0.01;
+      return clamp(adjustment, -0.08, 0.08);
+    }
+
+    function statusFromThreshold(value, pass, direction = "gte", yellowBand = 0.1) {
+      if (!Number.isFinite(value) || !Number.isFinite(pass)) return "red";
+      if (direction === "gte") {
+        if (value >= pass) return "green";
+        if (value >= pass * (1 - yellowBand)) return "yellow";
+        return "red";
+      }
+      if (value <= pass) return "green";
+      if (value <= pass * (1 + yellowBand)) return "yellow";
+      return "red";
+    }
+
+    function dscrStatus(value) {
+      if (!Number.isFinite(value)) return "red";
+      if (value >= 1.25) return "green";
+      if (value >= 1.10) return "yellow";
+      return "red";
+    }
+
+    function ltvStatus(value) {
+      if (!Number.isFinite(value)) return "red";
+      if (value <= 0.65) return "green";
+      if (value <= 0.75) return "yellow";
+      return "red";
+    }
+
+    function debtYieldStatus(value) {
+      if (!Number.isFinite(value)) return "red";
+      if (value >= 0.08) return "green";
+      if (value >= 0.06) return "yellow";
+      return "red";
+    }
+
+    function berStatus(value) {
+      if (!Number.isFinite(value)) return "red";
+      if (value < 0.70) return "green";
+      if (value <= 0.80) return "yellow";
+      return "red";
+    }
+
+    function oerStatus(value) {
+      if (!Number.isFinite(value)) return "red";
+      if (value <= 0.55) return "green";
+      if (value <= 0.60) return "yellow";
+      return "red";
+    }
+
+    function capRateStatus(value, input = dealState) {
+      return statusFromThreshold(value, input.minCapRate / 100, "gte");
+    }
+
+    function cocStatus(value, input = dealState) {
+      return statusFromThreshold(value, input.minCoc / 100, "gte");
+    }
+
+    function metricScore(status) {
+      return status === "green" ? 1 : status === "yellow" ? 0.5 : 0;
+    }
+
+    function statusLabel(status) {
+      return status === "green" ? "Pass" : status === "yellow" ? "Borderline" : status === "red" ? "Fail" : "Info";
+    }
+
+    function verdict(core, input = dealState) {
+      const statuses = {
+        DSCR: dscrStatus(core.dscr),
+        CoC: cocStatus(core.coc, input),
+        "Cap Rate": capRateStatus(core.capRate, input),
+        BER: berStatus(core.ber),
+        "Debt Yield": debtYieldStatus(core.debtYield),
+        LTV: ltvStatus(core.ltv),
+        GRM: core.grm <= 8 ? "green" : core.grm <= 12 ? "yellow" : "red"
+      };
+      const weightsByStrategy = {
+        "Cash Flow Focus": { DSCR: 0.25, CoC: 0.25, BER: 0.25, "Debt Yield": 0.25 },
+        "Appreciation Focus": { "Cap Rate": 0.30, GRM: 0.25, LTV: 0.20, "Debt Yield": 0.25 },
+        "Balanced": { DSCR: 1 / 6, CoC: 1 / 6, "Cap Rate": 1 / 6, BER: 1 / 6, "Debt Yield": 1 / 6, LTV: 1 / 6 },
+        "Value-Add": { BER: 0.30, DSCR: 0.25, "Debt Yield": 0.25, CoC: 0.20 }
+      };
+      const weights = weightsByStrategy[input.strategy] || weightsByStrategy.Balanced;
+      const score = Object.entries(weights).reduce((sum, [key, weight]) => sum + metricScore(statuses[key]) * weight, 0);
+      const label = score >= 0.75 ? "STRONG DEAL" : score >= 0.50 ? "BORDERLINE" : score >= 0.25 ? "WEAK DEAL" : "AVOID";
+      const color = score >= 0.75 ? "green" : score >= 0.50 ? "yellow" : "red";
+      const strong = Object.entries(statuses).filter(([, s]) => s === "green").map(([k]) => k);
+      const weak = Object.entries(statuses).filter(([, s]) => s === "red").map(([k]) => k);
+      const interpretation = [
+        strong.length ? `Strengths: ${strong.slice(0, 3).join(", ")} are carrying the score.` : "No core metric is firmly in pass territory yet.",
+        weak.length ? `Drag: ${weak.slice(0, 3).join(", ")} need attention before the deal clears your screen.` : "There are no major red flags among the weighted metrics.",
+        `The ${input.strategy.toLowerCase()} weighting produces a ${(score * 100).toFixed(0)}% pass score.`
+      ].join(" ");
+      return { label, color, score, statuses, interpretation };
+    }
+
+    function metricCard(name, value, sub, status = "neutral", tooltip = "", perSf = null) {
+      const sfText = perSf && dealState.perSfMode === "on" ? `<div class="metric-sub"><strong>Per SF:</strong> ${perSf}</div>` : "";
+      return `
+        <article class="metric-card status-${status}">
+          <div class="metric-top">
+            <div class="metric-name">${name}</div>
+            <span class="tooltip" tabindex="0">?<span>${tooltip}</span></span>
+          </div>
+          <div class="metric-value">${value}</div>
+          <div class="metric-sub">${sub}</div>
+          ${sfText}
+        </article>
+      `;
+    }
+
+    function renderDashboard(core) {
+      const v = verdict(core);
+      $("#verdictMount").innerHTML = `
+        <section class="verdict-card status-${v.color}">
+          <div>
+            <div class="verdict-label">Overall Deal Verdict</div>
+            <div class="verdict-value" style="color:var(--${v.color});">${v.label}</div>
+            <p class="subtitle" style="margin-top:8px;">${v.interpretation}</p>
+          </div>
+          <div class="score-pill" style="background:var(--${v.color});">${(v.score * 100).toFixed(0)}%</div>
+        </section>
+      `;
+
+      if (dealState.amortizationType === "partial-io") {
+        const stress = calculateCore(dealState, { adsOverride: core.debt.postIo.debtService });
+        const sv = verdict(stress);
+        $("#stressMount").innerHTML = `
+          <section class="stress-card">
+            <strong>Post-IO Stress View: ${sv.label} (${(sv.score * 100).toFixed(0)}%)</strong>
+            <div class="helper">Recasts after the IO period using amortizing ADS. This is separate from the Year 1 verdict.</div>
+            <div class="stress-grid">
+              ${miniStat("ADS", formatCurrency(stress.ads))}
+              ${miniStat("DSCR", formatNumber(stress.dscr, 2))}
+              ${miniStat("Cash Flow", formatCurrency(stress.annualCashFlow))}
+              ${miniStat("CoC", formatPercent(stress.coc))}
+              ${miniStat("BER", formatPercent(stress.ber))}
+              ${miniStat("Debt Yield", formatPercent(stress.debtYield))}
+            </div>
+          </section>
+        `;
+      } else {
+        $("#stressMount").innerHTML = "";
+      }
+
+      const sf = dealState.rentableSF || NaN;
+      const rows = [
+        ["Income & Expense Summary", [
+          metricCard("Gross Potential Income", formatCurrency(core.gpi), "Base rent plus additional income.", "neutral", "GPI = Annual Base Rent + Additional Annual Income", formatCurrency(ratio(core.gpi, sf), 2)),
+          metricCard("Vacancy Loss", formatCurrency(core.vacancyLoss), "Income lost to expected vacancy.", "neutral", "Vacancy Loss = GPI × Vacancy Rate", formatCurrency(ratio(core.vacancyLoss, sf), 2)),
+          metricCard("Credit Loss", formatCurrency(core.creditLoss), "Allowance for bad debt or collection loss.", "neutral", "Credit Loss = GPI × Credit Loss Rate", formatCurrency(ratio(core.creditLoss, sf), 2)),
+          metricCard("Effective Gross Income", formatCurrency(core.egi), "Income after vacancy and credit loss.", "neutral", "EGI = GPI − Vacancy Loss − Credit Loss", formatCurrency(ratio(core.egi, sf), 2)),
+          metricCard("Total Operating Expenses", formatCurrency(core.opex), "Operating expenses only; debt service excluded.", "neutral", "OpEx = Sum of operating expense line items. Debt service is not included.", formatCurrency(ratio(core.opex, sf), 2)),
+          metricCard("Operating Expense Ratio", formatPercent(core.oer), "Typical commercial range is 35–55%.", oerStatus(core.oer), "OER = OpEx / EGI. Above 60% is flagged red."),
+          metricCard("Net Operating Income", formatCurrency(core.noi), "Property income before debt service.", "neutral", "NOI = EGI − OpEx", formatCurrency(ratio(core.noi, sf), 2))
+        ]],
+        ["Financing & Debt Metrics", [
+          metricCard("Loan Amount", formatCurrency(core.loanAmount), "Closing costs and fees are not added to loan principal.", "neutral", "Loan Amount = Purchase Price × (1 − Down Payment %)"),
+          metricCard("Monthly Mortgage Payment", formatCurrency(core.monthlyPayment), "Year 1 payment basis for dashboard metrics.", "neutral", "Monthly payment comes from the amortization schedule; partial IO uses IO payment in IO years."),
+          metricCard("Annual Debt Service", formatCurrency(core.ads), "Year 1 ADS used for primary dashboard metrics.", "neutral", "ADS = monthly payments from the actual debt schedule × 12."),
+          metricCard("DSCR", formatNumber(core.dscr, 2), `${statusLabel(dscrStatus(core.dscr))}: NOI coverage of annual debt service.`, dscrStatus(core.dscr), "DSCR = NOI / ADS. Green ≥ 1.25, yellow 1.10–1.24, red < 1.10."),
+          metricCard("Loan-to-Value", formatPercent(core.ltv), `${statusLabel(ltvStatus(core.ltv))}: leverage relative to purchase price.`, ltvStatus(core.ltv), "LTV = Loan Amount / Purchase Price. Green ≤ 65%, yellow 65–75%, red > 75%."),
+          metricCard("Debt Yield", formatPercent(core.debtYield), `${statusLabel(debtYieldStatus(core.debtYield))}: NOI yield on lender basis.`, debtYieldStatus(core.debtYield), "Debt Yield = NOI / Loan Amount. Green ≥ 8%, yellow 6–8%, red < 6%."),
+          metricCard("Loan Constant", formatPercent(core.loanConstant), "Annual debt burden as a percent of loan.", "neutral", "Loan Constant = ADS / Loan Amount.")
+        ]],
+        ["Cash Flow & Return Metrics", [
+          metricCard("Annual Pre-Tax Cash Flow", formatCurrency(core.annualCashFlow), "NOI after annual debt service.", core.annualCashFlow >= 0 ? "green" : "red", "Cash Flow = NOI − ADS", formatCurrency(ratio(core.annualCashFlow, sf), 2)),
+          metricCard("Monthly Cash Flow", formatCurrency(core.monthlyCashFlow), "Average monthly pre-tax cash flow.", core.monthlyCashFlow >= 0 ? "green" : "red", "Monthly CF = Annual Cash Flow / 12", formatCurrency(ratio(core.monthlyCashFlow, sf), 2)),
+          metricCard("Total Cash Invested", formatCurrency(core.totalCashInvested), "Equity cash basis used for CoC returns.", "neutral", "Total Cash Invested = Down Payment + Closing Costs + Points + Origination Fee"),
+          metricCard("Cash-on-Cash Return", formatPercent(core.coc), `${statusLabel(cocStatus(core.coc))}: return on total cash invested.`, cocStatus(core.coc), "CoC = Annual Pre-Tax Cash Flow / Total Cash Invested."),
+          metricCard("Cap Rate", formatPercent(core.capRate), `${statusLabel(capRateStatus(core.capRate))}: going-in unlevered yield.`, capRateStatus(core.capRate), "Cap Rate = NOI / Purchase Price."),
+          metricCard("Gross Rent Multiplier", formatNumber(core.grm, 2), "Purchase price relative to gross income.", "neutral", "GRM = Purchase Price / GPI."),
+          metricCard("Price per SF", formatCurrency(core.priceSf, 2), "Acquisition price per rentable square foot.", "neutral", "Price/SF = Purchase Price / Rentable Square Footage."),
+          metricCard("Price per Unit", formatCurrency(core.priceUnit), "Shown for multifamily deals.", dealState.propertyType === "Multifamily (5+ units)" ? "neutral" : "neutral", "Price/Unit = Purchase Price / Number of Units."),
+          metricCard("Rent per SF", formatCurrency(core.rentSf, 2), "Annual base rent per rentable square foot.", "neutral", "Rent/SF = Annual Base Rent / Rentable Square Footage."),
+          metricCard("Break-Even Ratio", formatPercent(core.ber), `${statusLabel(berStatus(core.ber))}. Alternate vs. GPI: ${formatPercent(core.berGpi)}.`, berStatus(core.ber), "BER = (OpEx + ADS) / EGI. Alternate note uses GPI only for reference."),
+          metricCard("Year 1 Levered Return Approx.", formatPercent(core.leveredReturnApprox), "Approximation only, not a standard institutional metric.", "neutral", "Year 1 Levered Return = (Annual Cash Flow + Year 1 Principal Paydown) / Total Cash Invested.")
+        ]]
+      ];
+
+      $("#dashboardMount").innerHTML = rows.map(([title, cards]) => `
+        <section class="metrics-row">
+          <h3>${title}</h3>
+          <div class="metric-grid">${cards.join("")}</div>
+        </section>
+      `).join("");
+
+      if (dealState.propertyType !== "Multifamily (5+ units)") {
+        const cards = $$(".metric-card", $("#dashboardMount"));
+        cards.forEach(card => {
+          if ($(".metric-name", card)?.textContent === "Price per Unit") card.classList.add("hidden");
+        });
+      }
+    }
+
+    function miniStat(label, value) {
+      return `<div class="mini-stat"><small>${label}</small><strong>${value}</strong></div>`;
+    }
+
+    function renderScenarios() {
+      const scenarios = [
+        ["Bear Case", calculateCore(dealState, { vacancyDelta: 5, rentMultiplier: 0.95, expenseMultiplier: 1.10 })],
+        ["Base Case", calculateCore(dealState)],
+        ["Bull Case", calculateCore(dealState, { vacancyDelta: -3, rentMultiplier: 1.05, expenseMultiplier: 0.95 })]
+      ];
+      const rows = [
+        ["GPI", c => formatCurrency(c.gpi), () => "neutral"],
+        ["EGI", c => formatCurrency(c.egi), () => "neutral"],
+        ["NOI", c => formatCurrency(c.noi), () => "neutral"],
+        ["Cash Flow", c => formatCurrency(c.annualCashFlow), c => c.annualCashFlow >= 0 ? "green" : "red"],
+        ["CoC", c => formatPercent(c.coc), c => cocStatus(c.coc)],
+        ["Cap Rate", c => formatPercent(c.capRate), c => capRateStatus(c.capRate)],
+        ["DSCR", c => formatNumber(c.dscr, 2), c => dscrStatus(c.dscr)],
+        ["BER", c => formatPercent(c.ber), c => berStatus(c.ber)],
+        ["Debt Yield", c => formatPercent(c.debtYield), c => debtYieldStatus(c.debtYield)]
+      ];
+      $("#scenarioTable").innerHTML = `
+        <thead><tr><th>Metric</th>${scenarios.map(([name]) => `<th>${name}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${rows.map(([label, fmt, stat]) => `
+            <tr><td>${label}</td>${scenarios.map(([, c]) => `<td class="cell-${stat(c)}">${fmt(c)}</td>`).join("")}</tr>
+          `).join("")}
+        </tbody>
+      `;
+
+      const base = calculateCore(dealState);
+      const noiLevels = [0.90, 0.95, 1.00, 1.05, 1.10];
+      const priceLevels = [0.90, 0.95, 1.00, 1.05, 1.10];
+      $("#sensitivityTable").innerHTML = `
+        <thead>
+          <tr><th>NOI \\ Price</th>${priceLevels.map(p => `<th>${formatCurrency(dealState.purchasePrice * p)}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${noiLevels.map(n => `
+            <tr>
+              <td>${formatCurrency(base.noi * n)}</td>
+              ${priceLevels.map(p => {
+                const cap = ratio(base.noi * n, dealState.purchasePrice * p);
+                return `<td class="cell-${capRateStatus(cap)}">${formatPercent(cap)}</td>`;
+              }).join("")}
+            </tr>
+          `).join("")}
+        </tbody>
+      `;
+    }
+
+    // Solves IRR with bisection against the complete annual cash flow series.
+    function solveIrr(cashFlows) {
+      const npv = rate => cashFlows.reduce((sum, cf, i) => sum + cf / Math.pow(1 + rate, i), 0);
+      let low = -0.9999;
+      let high = 2;
+      let lowNpv = npv(low);
+      let highNpv = npv(high);
+      if (!Number.isFinite(lowNpv) || !Number.isFinite(highNpv) || lowNpv * highNpv > 0) return NaN;
+      for (let i = 0; i < 200; i++) {
+        const mid = (low + high) / 2;
+        const midNpv = npv(mid);
+        if (!Number.isFinite(midNpv)) return NaN;
+        if (Math.abs(midNpv) < 0.000001) return mid;
+        if (lowNpv * midNpv <= 0) {
+          high = mid;
+          highNpv = midNpv;
+        } else {
+          low = mid;
+          lowNpv = midNpv;
+        }
+      }
+      return (low + high) / 2;
+    }
+
+    function renderExit(core) {
+      if (exitCapAuto || !dealState.exitCapRate) {
+        dealState.exitCapRate = Number.isFinite(core.capRate) && core.capRate > 0 ? core.capRate * 100 : DEFAULTS.minCapRate;
+        const exitCapInput = $("#exitCapRate");
+        if (exitCapInput) setFieldDisplay(exitCapInput);
+      }
+      const years = Math.max(1, Math.round(dealState.holdYears));
+      const baseGpi = core.gpi;
+      const baseOpex = core.opex;
+      const debtRows = core.debt.rows;
+      const tableRows = [];
+      let cumulativeCashFlow = 0;
+
+      for (let year = 1; year <= years; year++) {
+        const grossIncome = baseGpi * Math.pow(1 + dealState.rentGrowth / 100, year - 1);
+        const operatingExpenses = baseOpex * Math.pow(1 + dealState.expenseGrowth / 100, year - 1);
+        const noi = grossIncome - operatingExpenses;
+        const debtRow = debtRows[Math.min(year - 1, debtRows.length - 1)] || { debtService: 0, endingBalance: 0 };
+        const debtService = debtRow.debtService;
+        const cashFlow = noi - debtService;
+        cumulativeCashFlow += cashFlow;
+        const runningValue = core.capRate > 0 ? noi / core.capRate : 0;
+        const equity = runningValue - debtRow.endingBalance;
+        tableRows.push({ year, grossIncome, operatingExpenses, noi, debtService, cashFlow, balance: debtRow.endingBalance, cumulativeCashFlow, equity });
+      }
+
+      const exitRow = tableRows[tableRows.length - 1];
+      const salePrice = dealState.exitMethod === "cap"
+        ? (dealState.exitCapRate > 0 ? exitRow.noi / (dealState.exitCapRate / 100) : 0)
+        : dealState.purchasePrice * Math.pow(1 + dealState.appreciationRate / 100, years);
+      const sellingCosts = salePrice * dealState.sellingCostPct / 100;
+      const netSaleProceeds = salePrice - exitRow.balance - sellingCosts;
+      const totalProfit = netSaleProceeds + exitRow.cumulativeCashFlow - core.totalCashInvested;
+      const equityMultiple = ratio(netSaleProceeds + exitRow.cumulativeCashFlow, core.totalCashInvested);
+      const annualCashFlows = tableRows.map(r => r.cashFlow);
+      const irrFlows = [-core.totalCashInvested, ...annualCashFlows.slice(0, -1), annualCashFlows[annualCashFlows.length - 1] + netSaleProceeds];
+      const irr = clamp(solveIrr(irrFlows), -1, 2);
+      const equityStatus = equityMultiple >= 2 ? "green" : equityMultiple >= 1.5 ? "yellow" : "red";
+      const irrStatus = Number.isFinite(irr) ? (irr >= 0.15 ? "green" : irr >= 0.10 ? "yellow" : "red") : "red";
+
+      $("#exitSummary").innerHTML = [
+        summaryCard("Projected Sale Price", formatCurrency(salePrice), "neutral"),
+        summaryCard("Net Sale Proceeds", formatCurrency(netSaleProceeds), "neutral"),
+        summaryCard("Equity Multiple", formatMultiple(equityMultiple), equityStatus),
+        summaryCard("IRR", Number.isFinite(irr) ? formatPercent(irr) : "N/A", irrStatus)
+      ].join("");
+
+      $("#exitTable").innerHTML = `
+        <thead>
+          <tr>
+            <th>Year</th><th>Gross Income</th><th>Operating Expenses</th><th>NOI</th><th>Annual Debt Service</th>
+            <th>Pre-Tax Cash Flow</th><th>Remaining Loan Balance</th><th>Cumulative Cash Flow</th><th>Equity</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows.map(r => `
+            <tr>
+              <td>${r.year}</td>
+              <td>${formatCurrency(r.grossIncome)}</td>
+              <td>${formatCurrency(r.operatingExpenses)}</td>
+              <td>${formatCurrency(r.noi)}</td>
+              <td>${formatCurrency(r.debtService)}</td>
+              <td class="${r.cashFlow >= 0 ? "cell-green" : "cell-red"}">${formatCurrency(r.cashFlow)}</td>
+              <td>${formatCurrency(r.balance)}</td>
+              <td>${formatCurrency(r.cumulativeCashFlow)}</td>
+              <td>${formatCurrency(r.equity)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      `;
+
+      renderChart(tableRows);
+      const exit = { salePrice, netSaleProceeds, totalProfit, equityMultiple, irr, tableRows };
+      renderMemo(core, exit);
+      renderPrintSheet(core, exit);
+    }
+
+    function summaryCard(label, value, status) {
+      return `<div class="summary-card status-${status}"><small>${label}</small><strong>${value}</strong></div>`;
+    }
+
+    function renderChart(rows) {
+      const ctx = $("#exitChart");
+      if (!ctx || !window.Chart) return;
+      const data = {
+        labels: rows.map(r => `Year ${r.year}`),
+        datasets: [
+          { label: "Equity", data: rows.map(r => Math.round(r.equity)), borderColor: "#2563EB", backgroundColor: "rgba(37,99,235,0.08)", tension: 0.25 },
+          { label: "Cumulative Cash Flow", data: rows.map(r => Math.round(r.cumulativeCashFlow)), borderColor: "#16A34A", backgroundColor: "rgba(22,163,74,0.08)", tension: 0.25 },
+          { label: "Remaining Loan Balance", data: rows.map(r => Math.round(r.balance)), borderColor: "#DC2626", backgroundColor: "rgba(220,38,38,0.08)", tension: 0.25 }
+        ]
+      };
+      if (exitChart) {
+        exitChart.data = data;
+        exitChart.update();
+        return;
+      }
+      exitChart = new Chart(ctx, {
+        type: "line",
+        data,
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: { callbacks: { label: item => `${item.dataset.label}: ${formatCurrency(item.parsed.y)}` } }
+          },
+          scales: {
+            y: { ticks: { callback: value => formatCurrency(value, 0) } }
+          }
+        }
+      });
+    }
+
+    function plainStatus(status) {
+      return status === "green" ? "strong" : status === "yellow" ? "watch" : "weak";
+    }
+
+    function metricPhrase(label, value, status) {
+      return `${label} is ${value}, which screens as ${plainStatus(status)}.`;
+    }
+
+    function pickMemoBullets(core, exit) {
+      const v = verdict(core);
+      const finalYear = exit.tableRows?.[exit.tableRows.length - 1] || {};
+      const strengths = [];
+      const risks = [];
+      const improvements = [];
+      const diligence = [];
+
+      if (dscrStatus(core.dscr) === "green") strengths.push(`Debt coverage is healthy at ${formatNumber(core.dscr, 2)}x DSCR, giving the deal room to absorb some NOI softness.`);
+      if (cocStatus(core.coc) === "green") strengths.push(`Year 1 cash-on-cash return of ${formatPercent(core.coc)} clears the investor's ${formatNumber(dealState.minCoc, 1)}% target.`);
+      if (capRateStatus(core.capRate) === "green") strengths.push(`The going-in cap rate of ${formatPercent(core.capRate)} exceeds the underwriting threshold of ${formatNumber(dealState.minCapRate, 1)}%.`);
+      if (debtYieldStatus(core.debtYield) === "green") strengths.push(`Debt yield of ${formatPercent(core.debtYield)} is lender-friendly and supports the financing basis.`);
+      if (berStatus(core.ber) === "green") strengths.push(`Break-even ratio of ${formatPercent(core.ber)} suggests the asset does not need heroic occupancy to cover expenses and debt.`);
+      if (Number.isFinite(exit.irr) && exit.irr >= 0.15) strengths.push(`Projected IRR of ${formatPercent(exit.irr)} is compelling if the exit assumptions hold.`);
+
+      if (dscrStatus(core.dscr) === "red") risks.push(`DSCR is only ${formatNumber(core.dscr, 2)}x, so lender coverage and downside protection are immediate concerns.`);
+      if (cocStatus(core.coc) === "red") risks.push(`Cash-on-cash return of ${formatPercent(core.coc)} misses the stated target and may disappoint income-focused capital.`);
+      if (capRateStatus(core.capRate) === "red") risks.push(`The going-in cap rate of ${formatPercent(core.capRate)} is below the minimum threshold, increasing reliance on appreciation or NOI growth.`);
+      if (berStatus(core.ber) === "red") risks.push(`Break-even ratio of ${formatPercent(core.ber)} is elevated, meaning the deal has limited operating cushion.`);
+      if (ltvStatus(core.ltv) === "red") risks.push(`LTV of ${formatPercent(core.ltv)} is aggressive and could create refinance or lender pushback risk.`);
+      if (debtYieldStatus(core.debtYield) === "red") risks.push(`Debt yield of ${formatPercent(core.debtYield)} is thin, which can signal over-leverage relative to NOI.`);
+      if (!Number.isFinite(exit.irr)) risks.push("IRR could not converge, so the timing and sign pattern of cash flows should be reviewed carefully.");
+      if (Number.isFinite(exit.irr) && exit.irr < 0.10) risks.push(`Projected IRR of ${formatPercent(exit.irr)} is below a typical opportunistic/return hurdle.`);
+
+      if (dealState.vacancyRate > 8) improvements.push("Lease-up upside: reducing vacancy toward market occupancy could materially improve EGI, NOI, and DSCR.");
+      if (core.oer > 0.55) improvements.push("Expense management: operating expense ratio is high enough that tax appeals, insurance shopping, CAM audits, or contract rebids may create value.");
+      if (core.capRate < dealState.minCapRate / 100) improvements.push("Basis discipline: a lower purchase price or verified NOI upside would improve the going-in yield.");
+      if (core.dscr < dealState.minDscr) improvements.push("Debt structure: lower leverage, interest-only flexibility, or better rate terms could improve cash flow coverage.");
+      if (Number.isFinite(finalYear.noi) && finalYear.noi > core.noi * 1.1) improvements.push("NOI growth: the hold model shows meaningful NOI expansion, making execution of rent growth assumptions important.");
+      improvements.push("Negotiation lever: ask for seller credits, price reduction, or financing concessions if diligence confirms any income quality or expense issues.");
+
+      diligence.push("Verify rent roll, lease expirations, reimbursements, renewal options, and tenant credit quality against the income assumptions.");
+      diligence.push("Review trailing 12-month operating statements, tax reassessment risk, insurance quotes, and any non-recurring expenses.");
+      diligence.push("Confirm market rent comps, vacancy comps, exit cap support, and sale comparables for the chosen property type.");
+      diligence.push("Stress test lender terms, refinance options, and capex needs before treating the projected IRR as durable.");
+
+      return {
+        strengths: strengths.length ? strengths.slice(0, 4) : ["The deal does not currently show a clear standout strength; improvement likely depends on better basis, income growth, or debt terms."],
+        risks: risks.length ? risks.slice(0, 4) : ["No major red-flag metric is currently driving the score, but assumptions still need third-party validation."],
+        improvements: improvements.slice(0, 4),
+        diligence,
+        v
+      };
+    }
+
+    function renderMemo(core, exit) {
+      const mount = $("#memoMount");
+      if (!mount) return;
+      const memo = pickMemoBullets(core, exit);
+      const propertyName = dealState.propertyName || "Unnamed Deal";
+      const finalYear = exit.tableRows?.[exit.tableRows.length - 1] || {};
+      const headline = `${propertyName} screens as ${memo.v.label.toLowerCase()} under a ${dealState.strategy.toLowerCase()} lens. ${memo.v.interpretation}`;
+      const kpis = [
+        ["Purchase Price", formatCurrency(dealState.purchasePrice)],
+        ["NOI", formatCurrency(core.noi)],
+        ["Cap Rate", formatPercent(core.capRate)],
+        ["Cash-on-Cash", formatPercent(core.coc)],
+        ["DSCR", `${formatNumber(core.dscr, 2)}x`],
+        ["Debt Yield", formatPercent(core.debtYield)],
+        ["Exit IRR", Number.isFinite(exit.irr) ? formatPercent(exit.irr) : "N/A"],
+        ["Equity Multiple", formatMultiple(exit.equityMultiple)]
+      ];
+      const underwritingRead = [
+        metricPhrase("Cap rate", formatPercent(core.capRate), capRateStatus(core.capRate)),
+        metricPhrase("DSCR", `${formatNumber(core.dscr, 2)}x`, dscrStatus(core.dscr)),
+        metricPhrase("CoC return", formatPercent(core.coc), cocStatus(core.coc)),
+        `At exit, the model projects ${formatCurrency(exit.netSaleProceeds)} of net sale proceeds and ${formatCurrency(finalYear.cumulativeCashFlow || 0)} of cumulative pre-tax cash flow.`
+      ].join(" ");
+
+      mount.innerHTML = `
+        <article class="memo-page">
+          <div class="memo-header">
+            <div>
+              <p class="eyebrow">Investment Committee Snapshot</p>
+              <h2 class="memo-title">${propertyName}</h2>
+              <p class="subtitle">${dealState.propertyType} | ${formatNumber(dealState.rentableSF)} SF | ${dealState.loanTerm}-year debt | ${dealState.strategy}</p>
+            </div>
+            <div class="memo-badge" style="background:var(--${memo.v.color});">${memo.v.label}<br><small>${(memo.v.score * 100).toFixed(0)}% score</small></div>
+          </div>
+
+          <p class="memo-narrative"><strong>Executive read:</strong> ${headline}</p>
+          <p class="memo-narrative" style="margin-top:10px;"><strong>Underwriting read:</strong> ${underwritingRead}</p>
+
+          <div class="memo-grid">
+            ${kpis.map(([label, value]) => `<div class="memo-kpi"><small>${label}</small><strong>${value}</strong></div>`).join("")}
+          </div>
+
+          <div class="memo-columns">
+            ${memoBlock("Why This Could Work", memo.strengths)}
+            ${memoBlock("Key Risks / Watch Items", memo.risks)}
+            ${memoBlock("What Could Make It Better", memo.improvements)}
+            ${memoBlock("Diligence Questions For Partners", memo.diligence)}
+          </div>
+        </article>
+      `;
+    }
+
+    function memoBlock(title, bullets) {
+      return `<section class="memo-block"><h3>${title}</h3><ul>${bullets.map(item => `<li>${item}</li>`).join("")}</ul></section>`;
+    }
+
+    function calculateNegotiation(core) {
+      const asking = dealState.askingPrice || dealState.purchasePrice;
+      const guidance = dealState.sellerGuidance || asking;
+      const highSearch = Math.max(asking, guidance, dealState.purchasePrice, 1) * 1.35;
+      const minCap = dealState.minCapRate / 100;
+      const minCoc = dealState.minCoc / 100;
+      const minDscr = dealState.minDscr;
+      const targetIrr = 0.15;
+      const targetEquityMultiple = dealState.targetEquityMultiple;
+      const capPrice = minCap > 0 ? core.noi / minCap : highSearch;
+      const dscrPrice = findMaxPriceByPredicate(1, highSearch, price => {
+        const c = coreAtPurchasePrice(price);
+        return Number.isFinite(c.dscr) && c.dscr >= minDscr;
+      });
+      const cocPrice = findMaxPriceByPredicate(1, highSearch, price => {
+        const c = coreAtPurchasePrice(price);
+        return Number.isFinite(c.coc) && c.coc >= minCoc;
+      });
+      const exitPrice = findMaxPriceByPredicate(1, highSearch, price => {
+        const exit = irrAtPurchasePrice(price);
+        const irrPass = Number.isFinite(exit.irr) && exit.irr >= targetIrr;
+        const multiplePass = Number.isFinite(exit.equityMultiple) && exit.equityMultiple >= targetEquityMultiple;
+        return irrPass || multiplePass;
+      });
+      const supportableCandidates = [capPrice, dscrPrice, cocPrice, exitPrice].filter(v => Number.isFinite(v) && v > 0);
+      const walkAway = Math.max(0, Math.min(...supportableCandidates) - dealState.deferredCapex);
+      const pressure = negotiationPressureAdjustment();
+      const desiredDiscountPrice = asking * (1 - dealState.desiredDiscountPct / 100);
+      const targetStrike = clamp(Math.min(walkAway * 0.965, guidance || walkAway), 0, walkAway);
+      const initialOfferBase = Math.min(desiredDiscountPrice, targetStrike * (0.965 - Math.min(pressure, 0.04)));
+      const initialOffer = clamp(initialOfferBase + walkAway * pressure, 0, walkAway);
+      const counter = dealState.sellerCounterPrice || 0;
+      const counterCore = counter ? coreAtPurchasePrice(counter) : null;
+      const suggestedCounter = counter ? clamp(Math.min((counter + targetStrike) / 2, walkAway * 0.985), initialOffer, walkAway) : 0;
+      let posture = "Balanced";
+      if (pressure <= -0.035) posture = "Aggressive";
+      if (pressure >= 0.035) posture = "Competitive";
+      if (counter && counter <= walkAway && counter <= targetStrike * 1.01) posture = "Acceptable";
+      let recommendation = "Open with discipline";
+      if (counter) {
+        if (counter <= targetStrike) recommendation = "Accept or tighten non-price terms";
+        else if (counter <= walkAway) recommendation = "Counter, but stay engaged";
+        else recommendation = "Hold or walk unless terms improve";
+      }
+      return { asking, guidance, capPrice, dscrPrice, cocPrice, exitPrice, walkAway, targetStrike, initialOffer, counter, counterCore, suggestedCounter, posture, recommendation, pressure };
+    }
+
+    function renderNegotiation(core) {
+      const mount = $("#negotiationMount");
+      if (!mount) return;
+      const n = calculateNegotiation(core);
+      const discount = n.asking ? ratio(n.asking - n.initialOffer, n.asking) : NaN;
+      const walkDiscount = n.asking ? ratio(n.asking - n.walkAway, n.asking) : NaN;
+      const counterStatus = n.counter
+        ? (n.counter <= n.targetStrike ? "green" : n.counter <= n.walkAway ? "yellow" : "red")
+        : "neutral";
+      const supportRows = [
+        ["Cap Rate Support", n.capPrice, `Max price to clear ${formatNumber(dealState.minCapRate, 1)}% cap rate`],
+        ["DSCR Support", n.dscrPrice, `Max price to clear ${formatNumber(dealState.minDscr, 2)}x DSCR`],
+        ["Cash-on-Cash Support", n.cocPrice, `Max price to clear ${formatNumber(dealState.minCoc, 1)}% CoC`],
+        ["Exit Return Support", n.exitPrice, `Max price to clear ~15% IRR or ${formatMultiple(dealState.targetEquityMultiple)} equity multiple`]
+      ];
+      const rationale = [
+        `The recommended opener is ${formatCurrency(n.initialOffer)}, or ${formatPercent(discount)} below asking.`,
+        `The walk-away price is ${formatCurrency(n.walkAway)}, which is ${formatPercent(walkDiscount)} below asking.`,
+        `The posture is ${n.posture.toLowerCase()} because market pressure, seller motivation, buyer interest, days on market, condition, and known competition are being weighed against the underwriting support.`
+      ].join(" ");
+      const counterText = n.counter
+        ? `Seller counter is ${formatCurrency(n.counter)}. Recommendation: ${n.recommendation}. Suggested response price is ${formatCurrency(n.suggestedCounter)}. At the counter, DSCR is ${formatNumber(n.counterCore.dscr, 2)}x, CoC is ${formatPercent(n.counterCore.coc)}, and cap rate is ${formatPercent(n.counterCore.capRate)}.`
+        : "Enter a seller counter price to generate a revised accept / counter / walk recommendation.";
+      const script = n.counter
+        ? `We like the asset and can move quickly, but at ${formatCurrency(n.counter)} the deal is pressing our return and coverage thresholds. Based on current NOI, debt terms, required reserves, and diligence risk, we can improve to ${formatCurrency(n.suggestedCounter)} while still maintaining a disciplined basis.`
+        : `We like the asset and can move quickly, but based on current NOI, debt terms, required reserves, and our return thresholds, our initial offer is ${formatCurrency(n.initialOffer)}. That price gives us enough coverage and downside cushion to move forward with conviction.`;
+
+      mount.innerHTML = `
+        <div class="verdict-card status-${counterStatus}" style="margin-bottom:16px;">
+          <div>
+            <div class="verdict-label">Negotiation Recommendation</div>
+            <div class="verdict-value" style="font-size:clamp(1.8rem,4vw,3rem); color:var(--${counterStatus === "neutral" ? "accent" : counterStatus});">${n.recommendation}</div>
+            <p class="subtitle" style="margin-top:8px;">${rationale}</p>
+          </div>
+          <div class="score-pill" style="background:var(--${counterStatus === "neutral" ? "accent" : counterStatus});">${n.posture}</div>
+        </div>
+
+        <div class="offer-band">
+          <div class="offer-card featured"><small>Recommended Initial Offer</small><strong>${formatCurrency(n.initialOffer)}</strong><span class="helper">${formatPercent(discount)} below asking</span></div>
+          <div class="offer-card"><small>Target Strike Price</small><strong>${formatCurrency(n.targetStrike)}</strong><span class="helper">Preferred agreement zone</span></div>
+          <div class="offer-card"><small>Walk-Away Price</small><strong>${formatCurrency(n.walkAway)}</strong><span class="helper">Highest supportable price after capex</span></div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Support Test</th><th>Max Supportable Price</th><th>Interpretation</th></tr></thead>
+            <tbody>${supportRows.map(([label, price, note]) => `<tr><td>${label}</td><td>${formatCurrency(price)}</td><td>${note}</td></tr>`).join("")}</tbody>
+          </table>
+        </div>
+
+        <div class="memo-columns">
+          <section class="memo-block">
+            <h3>Counteroffer Guidance</h3>
+            <p class="memo-narrative">${counterText}</p>
+          </section>
+          <section class="memo-block">
+            <h3>Suggested Message Framing</h3>
+            <div class="script-box">${script}</div>
+          </section>
+          <section class="memo-block">
+            <h3>Levers To Trade</h3>
+            <ul>
+              <li>Move price only if seller improves timing, diligence access, financing cooperation, credits, or representations.</li>
+              <li>Use deferred capex, tenant risk, tax reset risk, or debt market movement as objective support for pricing discipline.</li>
+              <li>If competition is high, preserve credibility with cleaner terms rather than overpaying beyond the walk-away price.</li>
+            </ul>
+          </section>
+          <section class="memo-block">
+            <h3>Decision Rules</h3>
+            <ul>
+              <li>Below target strike: pursue strongly if diligence confirms assumptions.</li>
+              <li>Between target strike and walk-away: counter carefully and ask for non-price concessions.</li>
+              <li>Above walk-away: hold firm or walk unless new income, lower capex, or better debt terms change the model.</li>
+            </ul>
+          </section>
+        </div>
+      `;
+    }
+
+    function renderPrintSheet(core, exit) {
+      const v = verdict(core);
+      const items = [
+        ["Property", dealState.propertyName || "Unnamed"],
+        ["Type", dealState.propertyType],
+        ["Purchase Price", formatCurrency(dealState.purchasePrice)],
+        ["NOI", formatCurrency(core.noi)],
+        ["Cap Rate", formatPercent(core.capRate)],
+        ["DSCR", formatNumber(core.dscr, 2)],
+        ["CoC", formatPercent(core.coc)],
+        ["BER", formatPercent(core.ber)],
+        ["Debt Yield", formatPercent(core.debtYield)],
+        ["Verdict", v.label],
+        ["Sale Price", formatCurrency(exit.salePrice)],
+        ["IRR", Number.isFinite(exit.irr) ? formatPercent(exit.irr) : "N/A"],
+        ["Equity Multiple", formatMultiple(exit.equityMultiple)],
+        ["Net Sale Proceeds", formatCurrency(exit.netSaleProceeds)],
+        ["Total Profit", formatCurrency(exit.totalProfit)]
+      ];
+      $("#printSheet").innerHTML = `
+        <h2>CRE Deal Analyzer Summary</h2>
+        <p>${v.interpretation}</p>
+        <div class="print-grid">${items.map(([k, val]) => `<div class="print-item"><small>${k}</small><strong>${val}</strong></div>`).join("")}</div>
+      `;
+    }
+
+    function renderCompareTable() {
+      const metrics = [
+        ["Purchase Price", d => formatCurrency(d.core.input.purchasePrice)],
+        ["NOI", d => formatCurrency(d.core.noi)],
+        ["Cap Rate", d => formatPercent(d.core.capRate)],
+        ["CoC", d => formatPercent(d.core.coc)],
+        ["DSCR", d => formatNumber(d.core.dscr, 2)],
+        ["BER", d => formatPercent(d.core.ber)],
+        ["Debt Yield", d => formatPercent(d.core.debtYield)],
+        ["Verdict", d => d.verdict.label]
+      ];
+      if (!savedDeals.length) {
+        $("#compareTable").innerHTML = `<tbody><tr><td>No saved deals yet. Use “Save Deal” to compare up to 5 deals.</td></tr></tbody>`;
+        return;
+      }
+      $("#compareTable").innerHTML = `
+        <thead><tr><th>Metric</th>${savedDeals.map(d => `<th>${d.name}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${metrics.map(([label, fn]) => `<tr><td>${label}</td>${savedDeals.map(d => `<td>${fn(d)}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      `;
+    }
+
+    function refresh() {
+      syncConditionalUi();
+      const core = calculateCore(getInputSnapshot());
+      $("#loanAmountInput").textContent = formatCurrency(core.loanAmount);
+      $("#cashInvestedInput").textContent = formatCurrency(core.totalCashInvested);
+      renderDashboard(core);
+      renderScenarios();
+      renderExit(core);
+      renderNegotiation(core);
+      updateRangeLabels();
+      renderCompareTable();
+    }
+
+    function syncConditionalUi() {
+      $$(".multifamily-only").forEach(el => el.classList.toggle("hidden", dealState.propertyType !== "Multifamily (5+ units)"));
+      $$(".partial-io-only").forEach(el => el.classList.toggle("hidden", dealState.amortizationType !== "partial-io"));
+      $("#nnnNote").classList.toggle("hidden", dealState.leaseType !== "NNN");
+      $$(".exit-cap-only").forEach(el => el.classList.toggle("hidden", dealState.exitMethod !== "cap"));
+      $$(".exit-appreciation-only").forEach(el => el.classList.toggle("hidden", dealState.exitMethod !== "appreciation"));
+      $$("[data-toggle]").forEach(group => {
+        const key = group.dataset.toggle;
+        $$("button", group).forEach(btn => btn.classList.toggle("active", String(dealState[key]) === btn.dataset.value));
+      });
+    }
+
+    function updateRangeLabels() {
+      $$("[data-range-label]").forEach(label => {
+        const key = label.dataset.rangeLabel;
+        const value = dealState[key];
+        label.textContent = key === "holdYears" ? `${value} yr` : `${formatNumber(value, key === "interestRate" || key === "creditLossRate" ? 3 : 0)}%`;
+      });
+    }
+
+    function setFieldDisplay(input) {
+      const key = input.dataset.key;
+      const format = input.dataset.format;
+      let value = dealState[key];
+      if (format === "currency") input.value = formatCurrency(value);
+      if (format === "number") input.value = formatNumber(value);
+      if (format === "percent") input.value = `${formatNumber(value, value % 1 ? 3 : 0)}%`;
+      if (format === "decimal") input.value = formatNumber(value, 2);
+      if (format === "multiple") input.value = `${formatNumber(value, 2)}x`;
+    }
+
+    function initializeExpenseInputs() {
+      $("#expenseInputs").innerHTML = EXPENSES.map(([key, label, defaultFormat]) => `
+        <div class="field">
+          <label for="${key}">${label}</label>
+          <div class="segmented" data-toggle="${key}Mode">
+            <button data-value="amount" type="button">$</button>
+            <button data-value="percent" type="button">% of EGI</button>
+          </div>
+          <input id="${key}" class="fmt" data-key="${key}" data-format="${defaultFormat}" type="text">
+        </div>
+      `).join("") + `<div class="field full"><div class="note">Operating expenses must never include debt service. Debt service is handled separately in financing metrics.</div></div>`;
+    }
+
+    function bindEvents() {
+      $$(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          $$(".tab-btn").forEach(b => b.classList.remove("active"));
+          $$(".tab-panel").forEach(p => p.classList.remove("active"));
+          btn.classList.add("active");
+          $(`#tab-${btn.dataset.tab}`).classList.add("active");
+        });
+      });
+
+      document.addEventListener("input", event => {
+        const target = event.target;
+        if (!target.dataset.key) return;
+        const key = target.dataset.key;
+        if (target.classList.contains("fmt")) {
+          dealState[key] = parseFormatted(target.value);
+          if (key === "exitCapRate") exitCapAuto = false;
+        } else if (target.type === "range") {
+          dealState[key] = parseFormatted(target.value);
+        } else {
+          dealState[key] = target.value;
+        }
+        refresh();
+      });
+
+      document.addEventListener("change", event => {
+        const target = event.target;
+        if (!target.dataset.key) return;
+        dealState[target.dataset.key] = target.classList.contains("fmt") || target.type === "range"
+          ? parseFormatted(target.value)
+          : target.value;
+        if (target.classList.contains("fmt")) setFieldDisplay(target);
+        refresh();
+      });
+
+      document.addEventListener("blur", event => {
+        if (event.target.classList?.contains("fmt")) setFieldDisplay(event.target);
+      }, true);
+
+      document.addEventListener("click", event => {
+        const button = event.target.closest("[data-toggle] button");
+        if (!button) return;
+        const group = button.closest("[data-toggle]");
+        dealState[group.dataset.toggle] = button.dataset.value;
+        const input = group.parentElement.querySelector("input.fmt");
+        if (input && group.dataset.toggle.endsWith("Mode")) {
+          input.dataset.format = button.dataset.value === "percent" ? "percent" : "currency";
+          setFieldDisplay(input);
+        }
+        refresh();
+      });
+
+      $("#saveDealBtn").addEventListener("click", () => {
+        if (savedDeals.length >= 5) {
+          alert("You can save up to 5 deals. Clear saved deals to add more.");
+          return;
+        }
+        const input = getInputSnapshot();
+        const core = calculateCore(input);
+        savedDeals.push({
+          name: input.propertyName || `Deal ${savedDeals.length + 1}`,
+          input,
+          core,
+          verdict: verdict(core, input)
+        });
+        renderCompareTable();
+      });
+
+      $("#clearDealsBtn").addEventListener("click", () => {
+        savedDeals = [];
+        renderCompareTable();
+      });
+
+      $("#printBtn").addEventListener("click", () => window.print());
+      $("#printMemoBtn").addEventListener("click", () => {
+        $$(".tab-btn").forEach(b => b.classList.remove("active"));
+        $$(".tab-panel").forEach(p => p.classList.remove("active"));
+        $('[data-tab="memo"]').classList.add("active");
+        $("#tab-memo").classList.add("active");
+        document.body.classList.add("memo-print");
+        window.print();
+        setTimeout(() => document.body.classList.remove("memo-print"), 500);
+      });
+
+      $("#resetBtn").addEventListener("click", () => {
+        dealState = { ...DEFAULTS };
+        exitCapAuto = true;
+        hydrateInputs();
+        refresh();
+      });
+    }
+
+    function hydrateInputs() {
+      $$("[data-key]").forEach(input => {
+        const key = input.dataset.key;
+        if (input.classList.contains("fmt")) {
+          setFieldDisplay(input);
+        } else if (input.type === "range") {
+          input.value = dealState[key];
+        } else {
+          input.value = dealState[key];
+        }
+      });
+      updateRangeLabels();
+      syncConditionalUi();
+    }
+
+    initializeExpenseInputs();
+    bindEvents();
+    hydrateInputs();
+    refresh();
+  </script>
+</body>
+</html>
